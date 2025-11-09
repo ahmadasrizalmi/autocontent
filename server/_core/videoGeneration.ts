@@ -1,5 +1,5 @@
 /**
- * Video generation helper using Runway Gen-3 API
+ * Video generation helper using Gemini Veo 3.1 API
  * 
  * Example usage:
  *   const { videoUrl } = await generateVideo({
@@ -11,121 +11,176 @@ import { ENV } from "./env";
 
 export type GenerateVideoOptions = {
   prompt: string;
-  duration?: number; // Duration in seconds (default: 5)
+  duration?: number; // Duration in seconds (Veo generates 8 seconds)
   imageUrl?: string; // Optional starting image
 };
 
 export type GenerateVideoResponse = {
   videoUrl?: string;
-  taskId?: string;
+  operationName?: string;
 };
 
 /**
- * Generate a single video scene using Runway Gen-3
+ * Generate a single video scene using Gemini Veo 3.1
  */
 export async function generateVideo(
   options: GenerateVideoOptions
 ): Promise<GenerateVideoResponse> {
-  if (!ENV.videoApiUrl) {
-    throw new Error("VIDEO_API_URL is not configured");
+  if (!ENV.forgeApiUrl) {
+    throw new Error("BUILT_IN_FORGE_API_URL is not configured");
   }
-  if (!ENV.videoApiKey) {
-    throw new Error("VIDEO_API_KEY is not configured");
+  if (!ENV.forgeApiKey) {
+    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
   }
 
-  const provider = ENV.videoApiProvider || 'runway';
-
-  if (provider === 'runway') {
-    return await generateVideoRunway(options);
-  } else {
-    throw new Error(`Unsupported video provider: ${provider}`);
-  }
+  return await generateVideoVeo(options);
 }
 
 /**
- * Generate video using Runway Gen-3 API
+ * Generate video using Gemini Veo 3.1 API
  */
-async function generateVideoRunway(
+async function generateVideoVeo(
   options: GenerateVideoOptions
 ): Promise<GenerateVideoResponse> {
-  const duration = options.duration || 5;
+  // Build the full URL for Veo video generation
+  const baseUrl = ENV.forgeApiUrl.endsWith("/")
+    ? ENV.forgeApiUrl
+    : `${ENV.forgeApiUrl}/`;
+  const fullUrl = new URL(
+    "videos.v1.VideoService/GenerateVideo",
+    baseUrl
+  ).toString();
 
-  // Step 1: Create generation task
-  const createResponse = await fetch(`${ENV.videoApiUrl}/v1/generate`, {
+  const requestBody: any = {
+    prompt: options.prompt,
+    model: "veo-3.1-generate-preview",
+  };
+
+  // Add image if provided
+  if (options.imageUrl) {
+    requestBody.image = {
+      url: options.imageUrl
+    };
+  }
+
+  // Step 1: Create generation request
+  const response = await fetch(fullUrl, {
     method: "POST",
     headers: {
-      "accept": "application/json",
+      accept: "application/json",
       "content-type": "application/json",
-      "authorization": `Bearer ${ENV.videoApiKey}`,
+      "connect-protocol-version": "1",
+      authorization: `Bearer ${ENV.forgeApiKey}`,
     },
-    body: JSON.stringify({
-      prompt: options.prompt,
-      duration: duration,
-      image_url: options.imageUrl,
-      model: "gen3a_turbo",
-    }),
+    body: JSON.stringify(requestBody),
   });
 
-  if (!createResponse.ok) {
-    const detail = await createResponse.text().catch(() => "");
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
     throw new Error(
-      `Video generation request failed (${createResponse.status} ${createResponse.statusText})${detail ? `: ${detail}` : ""}`
+      `Video generation request failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
     );
   }
 
-  const createResult = await createResponse.json() as { id: string };
-  const taskId = createResult.id;
+  const result = (await response.json()) as {
+    operation: {
+      name: string;
+      done: boolean;
+      response?: {
+        generated_videos: Array<{
+          video: {
+            b64_data?: string;
+            uri?: string;
+          };
+        }>;
+      };
+      error?: any;
+    };
+  };
+
+  const operationName = result.operation.name;
 
   // Step 2: Poll for completion
   let attempts = 0;
-  const maxAttempts = 60; // 5 minutes max (5 seconds interval)
+  const maxAttempts = 120; // 10 minutes max (5 seconds interval)
+  let operation = result.operation;
   
-  while (attempts < maxAttempts) {
+  while (!operation.done && attempts < maxAttempts) {
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
     
-    const statusResponse = await fetch(`${ENV.videoApiUrl}/v1/tasks/${taskId}`, {
-      method: "GET",
+    // Poll operation status
+    const statusUrl = new URL(
+      `operations.v1.OperationsService/GetOperation`,
+      baseUrl
+    ).toString();
+
+    const statusResponse = await fetch(statusUrl, {
+      method: "POST",
       headers: {
-        "accept": "application/json",
-        "authorization": `Bearer ${ENV.videoApiKey}`,
+        accept: "application/json",
+        "content-type": "application/json",
+        "connect-protocol-version": "1",
+        authorization: `Bearer ${ENV.forgeApiKey}`,
       },
+      body: JSON.stringify({
+        name: operationName
+      }),
     });
 
     if (!statusResponse.ok) {
       throw new Error(`Failed to check video status: ${statusResponse.statusText}`);
     }
 
-    const statusResult = await statusResponse.json() as {
-      status: string;
-      output?: string[];
-      failure?: string;
+    const statusResult = (await statusResponse.json()) as {
+      operation: typeof operation;
     };
 
-    if (statusResult.status === 'SUCCEEDED' && statusResult.output && statusResult.output.length > 0) {
-      const videoUrl = statusResult.output[0];
-      
-      // Download and upload to S3
-      const videoResponse = await fetch(videoUrl);
-      if (!videoResponse.ok) {
-        throw new Error('Failed to download generated video');
-      }
+    operation = statusResult.operation;
 
-      const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
-      const { url } = await storagePut(
-        `videos/${Date.now()}.mp4`,
-        videoBuffer,
-        'video/mp4'
-      );
-
-      return { videoUrl: url, taskId };
-    } else if (statusResult.status === 'FAILED') {
-      throw new Error(`Video generation failed: ${statusResult.failure || 'Unknown error'}`);
+    if (operation.error) {
+      throw new Error(`Video generation failed: ${JSON.stringify(operation.error)}`);
     }
 
     attempts++;
   }
 
-  throw new Error('Video generation timeout');
+  if (!operation.done) {
+    throw new Error('Video generation timeout');
+  }
+
+  // Step 3: Get video data
+  if (!operation.response?.generated_videos?.[0]?.video) {
+    throw new Error('No video in response');
+  }
+
+  const videoData = operation.response.generated_videos[0].video;
+  let videoBuffer: Buffer;
+
+  if (videoData.b64_data) {
+    // Base64 encoded video
+    videoBuffer = Buffer.from(videoData.b64_data, 'base64');
+  } else if (videoData.uri) {
+    // Download from URI
+    const videoResponse = await fetch(videoData.uri);
+    if (!videoResponse.ok) {
+      throw new Error('Failed to download generated video');
+    }
+    videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+  } else {
+    throw new Error('No video data in response');
+  }
+
+  // Step 4: Upload to S3
+  const { url } = await storagePut(
+    `videos/${Date.now()}.mp4`,
+    videoBuffer,
+    'video/mp4'
+  );
+
+  return { 
+    videoUrl: url, 
+    operationName 
+  };
 }
 
 /**
