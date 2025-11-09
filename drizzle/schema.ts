@@ -72,3 +72,45 @@ export const agents = mysqlTable("agents", {
 
 export type Agent = typeof agents.$inferSelect;
 export type InsertAgent = typeof agents.$inferInsert;
+
+/**
+ * Videos table - stores generated videos
+ */
+export const videos = mysqlTable("videos", {
+  id: int("id").autoincrement().primaryKey(),
+  videoId: varchar("videoId", { length: 255 }).notNull().unique(),
+  postId: varchar("postId", { length: 255 }),
+  niche: varchar("niche", { length: 100 }).notNull(),
+  prompt: text("prompt").notNull(),
+  storyScript: text("storyScript"),
+  scenes: json("scenes").$type<Scene[]>(),
+  videoUrl: text("videoUrl"),
+  thumbnailUrl: text("thumbnailUrl"),
+  duration: int("duration"),
+  status: varchar("status", { length: 50 }).default("pending").notNull(),
+  metadata: json("metadata").$type<VideoMetadata>(),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type Video = typeof videos.$inferSelect;
+export type InsertVideo = typeof videos.$inferInsert;
+
+export interface Scene {
+  sceneNumber: number;
+  description: string;
+  cameraAngle: 'wide' | 'medium' | 'close-up' | 'overhead' | 'pov';
+  duration: number;
+  action: string;
+  transition: 'cut' | 'fade' | 'dissolve' | 'wipe';
+  videoUrl?: string;
+}
+
+export interface VideoMetadata {
+  resolution?: string;
+  format?: string;
+  fps?: number;
+  totalScenes?: number;
+  provider?: string;
+}

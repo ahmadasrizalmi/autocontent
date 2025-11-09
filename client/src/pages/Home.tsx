@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { toast } from "sonner";
-import { Play, Square, Loader2, CheckCircle, TrendingUp, Sparkles, Image as ImageIcon, PenTool } from "lucide-react";
+import { Play, Square, Loader2, CheckCircle, TrendingUp, Sparkles, Image as ImageIcon, PenTool, Video } from "lucide-react";
 import { APP_TITLE } from "@/const";
+import { Link } from "wouter";
 
 export default function Home() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -172,6 +173,14 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Video Studio Link */}
+              <Link href="/videos">
+                <Button variant="outline" className="gap-2 bg-slate-800/50 border-slate-600 hover:bg-purple-500/20 hover:border-purple-500">
+                  <Video className="w-4 h-4" />
+                  Video Studio
+                </Button>
+              </Link>
+
               {/* WebSocket Status */}
               <div className="flex items-center gap-2 text-sm text-slate-400">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />

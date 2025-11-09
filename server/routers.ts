@@ -4,10 +4,12 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { z } from "zod";
 import { FactoryService } from "./services/factory";
-import { getAllPosts, getPostById, getAllAgents } from "./db";
+import { VideoService } from "./services/video";
+import { getAllPosts, getPostById, getAllAgents, getAllVideos, getVideoByVideoId } from "./db";
 
-// Initialize factory service
+// Initialize services
 const factoryService = new FactoryService();
+const videoService = new VideoService();
 
 export const appRouter = router({
   system: systemRouter,
@@ -99,6 +101,82 @@ export const appRouter = router({
       .query(async () => {
         const agents = await getAllAgents();
         return { agents };
+      })
+  }),
+
+  // Video generation router
+  video: router({
+    generate: publicProcedure
+      .input(z.object({
+        prompt: z.string().min(1),
+        niche: z.string().optional(),
+        sceneCount: z.number().min(1).max(5).default(3),
+        totalDuration: z.number().min(15).max(60).default(30)
+      }))
+      .mutation(async ({ input }) => {
+        const result = await videoService.generateVideo({
+          prompt: input.prompt,
+          niche: input.niche,
+          sceneCount: input.sceneCount,
+          totalDuration: input.totalDuration
+        });
+        return {
+          success: true,
+          videoId: result.videoId,
+          message: 'Video generation started'
+        };
+      }),
+
+    status: publicProcedure
+      .input(z.object({
+        videoId: z.string()
+      }))
+      .query(async ({ input }) => {
+        const status = await videoService.getStatus(input.videoId);
+        if (!status) {
+          throw new Error('Video not found');
+        }
+        return status;
+      }),
+
+    cancel: publicProcedure
+      .input(z.object({
+        videoId: z.string()
+      }))
+      .mutation(async ({ input }) => {
+        await videoService.cancelGeneration(input.videoId);
+        return {
+          success: true,
+          message: 'Video generation cancelled'
+        };
+      }),
+
+    list: publicProcedure
+      .input(z.object({
+        limit: z.number().min(1).max(100).default(20),
+        offset: z.number().min(0).default(0)
+      }).optional())
+      .query(async ({ input }) => {
+        const videos = await getAllVideos(
+          input?.limit || 20,
+          input?.offset || 0
+        );
+        return {
+          videos,
+          total: videos.length
+        };
+      }),
+
+    get: publicProcedure
+      .input(z.object({
+        videoId: z.string()
+      }))
+      .query(async ({ input }) => {
+        const video = await getVideoByVideoId(input.videoId);
+        if (!video) {
+          throw new Error('Video not found');
+        }
+        return video;
       })
   })
 });

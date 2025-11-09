@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, posts, InsertPost, Post, jobs, InsertJob, Job, agents, InsertAgent, Agent } from "../drizzle/schema";
+import { InsertUser, users, posts, InsertPost, Post, jobs, InsertJob, Job, agents, InsertAgent, Agent, videos, InsertVideo, Video } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -206,4 +206,72 @@ export async function incrementAgentTasks(name: string): Promise<void> {
       tasksCompleted: agent[0].tasksCompleted + 1,
     }).where(eq(agents.name, name));
   }
+}
+
+// Videos helpers
+export async function createVideo(video: InsertVideo): Promise<Video> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(videos).values(video);
+  const insertedId = Number(result[0].insertId);
+  
+  const created = await db.select().from(videos).where(eq(videos.id, insertedId)).limit(1);
+  return created[0];
+}
+
+export async function getAllVideos(limit: number = 20, offset: number = 0): Promise<Video[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(videos).orderBy(desc(videos.createdAt)).limit(limit).offset(offset);
+}
+
+export async function getVideoById(id: number): Promise<Video | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
+  return result[0];
+}
+
+export async function getVideoByVideoId(videoId: string): Promise<Video | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(videos).where(eq(videos.videoId, videoId)).limit(1);
+  return result[0];
+}
+
+export async function updateVideo(videoId: string, updates: Partial<InsertVideo>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(videos).set(updates).where(eq(videos.videoId, videoId));
+}
+
+export async function updateVideoStatus(
+  videoId: string, 
+  status: string, 
+  videoUrl?: string,
+  errorMessage?: string
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updateData: any = { status };
+  
+  if (status === 'completed') {
+    updateData.completedAt = new Date();
+    if (videoUrl) {
+      updateData.videoUrl = videoUrl;
+    }
+  }
+  
+  if (status === 'failed' && errorMessage) {
+    updateData.errorMessage = errorMessage;
+    updateData.completedAt = new Date();
+  }
+
+  await db.update(videos).set(updateData).where(eq(videos.videoId, videoId));
 }
