@@ -5,11 +5,13 @@ import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { z } from "zod";
 import { FactoryService } from "./services/factory";
 import { VideoService } from "./services/video";
+import { VideoPrompterService } from "./services/videoPrompter";
 import { getAllPosts, getPostById, getAllAgents, getAllVideos, getVideoByVideoId } from "./db";
 
 // Initialize services
 const factoryService = new FactoryService();
 const videoService = new VideoService();
+const videoPrompterService = new VideoPrompterService();
 
 export const appRouter = router({
   system: systemRouter,
@@ -177,6 +179,60 @@ export const appRouter = router({
           throw new Error('Video not found');
         }
         return video;
+      })
+  }),
+
+  // Video Prompter Agent router
+  videoPrompter: router({
+    generate: publicProcedure
+      .input(z.object({
+        niche: z.string(),
+        topic: z.string().optional(),
+        mood: z.enum(['energetic', 'calm', 'dramatic', 'playful', 'professional', 'casual']).optional(),
+        visualStyle: z.string().optional(),
+        keywords: z.array(z.string()).optional()
+      }))
+      .mutation(async ({ input }) => {
+        const result = await videoPrompterService.generatePrompt(input);
+        return {
+          success: true,
+          ...result
+        };
+      }),
+
+    getSuggestions: publicProcedure
+      .input(z.object({
+        niche: z.string(),
+        count: z.number().min(1).max(5).default(3),
+        topic: z.string().optional(),
+        mood: z.enum(['energetic', 'calm', 'dramatic', 'playful', 'professional', 'casual']).optional()
+      }))
+      .query(async ({ input }) => {
+        const { count, ...options } = input;
+        const suggestions = await videoPrompterService.generateMultiplePrompts(options, count);
+        return {
+          suggestions
+        };
+      }),
+
+    getNiches: publicProcedure
+      .query(() => {
+        const niches = videoPrompterService.getAvailableNiches();
+        return {
+          niches
+        };
+      }),
+
+    getNicheInfo: publicProcedure
+      .input(z.object({
+        niche: z.string()
+      }))
+      .query(({ input }) => {
+        const info = videoPrompterService.getNicheInfo(input.niche);
+        if (!info) {
+          throw new Error('Niche not found');
+        }
+        return info;
       })
   })
 });
