@@ -1,4 +1,4 @@
-import { invokeLLM } from '../_core/llm';
+import { callGemini, convertToGeminiMessages } from '../_core/gemini.js';
 
 export interface VideoPromptOptions {
   niche: string;
@@ -123,15 +123,17 @@ Output your response as a JSON object with this exact structure:
 Make the prompt cinematic, specific, and optimized for AI video generation. Include audio descriptions in the format: 'Audio: [description of sounds, dialogue, music]'`;
 
     try {
-      const response = await invokeLLM({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        response_format: { type: 'json_object' }
+      const geminiMessages = convertToGeminiMessages([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ]);
+
+      const response = await callGemini(geminiMessages, {
+        temperature: 0.8,
+        maxTokens: 1024
       });
 
-      const result = JSON.parse(response.choices[0].message.content as string);
+      const result = JSON.parse(response);
 
       return {
         concept: result.concept,
