@@ -1,0 +1,115 @@
+===========================================
+ENVIRONMENT VARIABLES FOR VERCEL DEPLOYMENT
+===========================================
+
+Copy and paste these into Vercel Dashboard:
+Settings > Environment Variables
+
+-------------------------------------------
+DATABASE & SUPABASE
+-------------------------------------------
+
+Name: DATABASE_URL
+Value: postgresql://postgres:[GET-PASSWORD-FROM-SUPABASE]@db.pedjwxmpnkomimbfqgsy.supabase.co:5432/postgres
+
+⚠️ IMPORTANT: Get password from Supabase Dashboard:
+https://supabase.com/dashboard/project/pedjwxmpnkomimbfqgsy/settings/database
+
+---
+
+Name: SUPABASE_URL
+Value: https://pedjwxmpnkomimbfqgsy.supabase.co
+
+---
+
+Name: SUPABASE_ANON_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlZGp3eG1wbmtvbWltYmZxZ3N5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2Njg2NzAsImV4cCI6MjA3ODI0NDY3MH0.ZHbo91YelL3_kbvJCdY8huJWtb8sq_B_ZDpn0EG7XlE
+
+-------------------------------------------
+GEMINI API (VIDEO GENERATION & LLM)
+-------------------------------------------
+
+Name: GEMINI_API_KEY
+Value: AIzaSyB73TfR1v-U42KB5ZkRqaLHJBc-tPxMGWw
+
+---
+
+Name: BUILT_IN_FORGE_API_URL
+Value: https://generativelanguage.googleapis.com
+
+---
+
+Name: BUILT_IN_FORGE_API_KEY
+Value: AIzaSyB73TfR1v-U42KB5ZkRqaLHJBc-tPxMGWw
+
+-------------------------------------------
+JWT & AUTHENTICATION
+-------------------------------------------
+
+Name: JWT_SECRET
+Value: autocontent-super-secret-jwt-key-2025-change-this
+
+⚠️ RECOMMENDED: Generate a strong random secret:
+https://generate-secret.vercel.app/32
+
+---
+
+Name: OAUTH_SERVER_URL
+Value: [LEAVE-EMPTY-FIRST-DEPLOY]
+
+⚠️ IMPORTANT: After first deployment:
+1. Copy your Vercel URL (e.g., https://autocontent-xyz.vercel.app)
+2. Come back and set this value
+3. Redeploy
+
+---
+
+Name: OWNER_OPEN_ID
+Value: [LEAVE-EMPTY-OR-SET-YOUR-ID]
+
+-------------------------------------------
+APP CONFIGURATION
+-------------------------------------------
+
+Name: VITE_APP_ID
+Value: autocontent-production
+
+---
+
+Name: NODE_ENV
+Value: production
+
+-------------------------------------------
+SUMMARY
+-------------------------------------------
+
+Total Variables: 11
+Required: 9
+Optional: 2 (OAUTH_SERVER_URL, OWNER_OPEN_ID)
+
+✅ All values provided above
+✅ Ready to paste into Vercel
+✅ Remember to get Supabase password
+✅ Update OAUTH_SERVER_URL after first deploy
+
+-------------------------------------------
+QUICK COPY (JSON FORMAT)
+-------------------------------------------
+
+For advanced users, here's JSON format:
+
+{
+  "DATABASE_URL": "postgresql://postgres:[PASSWORD]@db.pedjwxmpnkomimbfqgsy.supabase.co:5432/postgres",
+  "SUPABASE_URL": "https://pedjwxmpnkomimbfqgsy.supabase.co",
+  "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlZGp3eG1wbmtvbWltYmZxZ3N5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2Njg2NzAsImV4cCI6MjA3ODI0NDY3MH0.ZHbo91YelL3_kbvJCdY8huJWtb8sq_B_ZDpn0EG7XlE",
+  "GEMINI_API_KEY": "AIzaSyB73TfR1v-U42KB5ZkRqaLHJBc-tPxMGWw",
+  "BUILT_IN_FORGE_API_URL": "https://generativelanguage.googleapis.com",
+  "BUILT_IN_FORGE_API_KEY": "AIzaSyB73TfR1v-U42KB5ZkRqaLHJBc-tPxMGWw",
+  "JWT_SECRET": "autocontent-super-secret-jwt-key-2025-change-this",
+  "OAUTH_SERVER_URL": "",
+  "OWNER_OPEN_ID": "",
+  "VITE_APP_ID": "autocontent-production",
+  "NODE_ENV": "production"
+}
+
+-------------------------------------------
