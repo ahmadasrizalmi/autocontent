@@ -1,11 +1,10 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, posts, InsertPost, Post, jobs, InsertJob, Job, agents, InsertAgent, Agent } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -89,4 +88,122 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Posts helpers
+export async function createPost(post: InsertPost): Promise<Post> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(posts).values(post);
+  const insertedId = Number(result[0].insertId);
+  
+  const created = await db.select().from(posts).where(eq(posts.id, insertedId)).limit(1);
+  return created[0];
+}
+
+export async function getAllPosts(limit: number = 20, offset: number = 0): Promise<Post[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(posts).orderBy(desc(posts.createdAt)).limit(limit).offset(offset);
+}
+
+export async function getPostById(id: number): Promise<Post | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
+  return result[0];
+}
+
+export async function updatePostStatus(postId: string, status: string, circloPostId?: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updateData: any = { status };
+  if (status === 'published') {
+    updateData.publishedAt = new Date();
+  }
+  if (circloPostId) {
+    updateData.circloPostId = circloPostId;
+  }
+
+  await db.update(posts).set(updateData).where(eq(posts.postId, postId));
+}
+
+// Jobs helpers
+export async function createJob(job: InsertJob): Promise<Job> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(jobs).values(job);
+  const insertedId = Number(result[0].insertId);
+  
+  const created = await db.select().from(jobs).where(eq(jobs.id, insertedId)).limit(1);
+  return created[0];
+}
+
+export async function getJobByJobId(jobId: string): Promise<Job | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(jobs).where(eq(jobs.jobId, jobId)).limit(1);
+  return result[0];
+}
+
+export async function getLatestRunningJob(): Promise<Job | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(jobs).where(eq(jobs.status, 'running')).orderBy(desc(jobs.startedAt)).limit(1);
+  return result[0];
+}
+
+export async function updateJob(jobId: string, updates: Partial<InsertJob>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(jobs).set(updates).where(eq(jobs.jobId, jobId));
+}
+
+// Agents helpers
+export async function upsertAgent(agent: InsertAgent): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(agents).values(agent).onDuplicateKeyUpdate({
+    set: {
+      status: agent.status,
+      lastActive: agent.lastActive || new Date(),
+      tasksCompleted: agent.tasksCompleted,
+    },
+  });
+}
+
+export async function getAllAgents(): Promise<Agent[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(agents);
+}
+
+export async function updateAgentStatus(name: string, status: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(agents).set({
+    status,
+    lastActive: new Date(),
+  }).where(eq(agents.name, name));
+}
+
+export async function incrementAgentTasks(name: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const agent = await db.select().from(agents).where(eq(agents.name, name)).limit(1);
+  if (agent[0]) {
+    await db.update(agents).set({
+      tasksCompleted: agent[0].tasksCompleted + 1,
+    }).where(eq(agents.name, name));
+  }
+}
