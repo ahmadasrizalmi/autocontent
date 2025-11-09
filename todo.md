@@ -45,3 +45,7 @@
 - [x] Test GetCirclo API integration
 - [x] Verify real-time updates work correctly
 - [x] Create checkpoint for deployment
+
+## Revisions
+- [x] Update image generation to create realistic iPhone-style photos with humans (selfie/candid style)
+- [x] Fix hashtag placement - insert #DNA between other hashtags, not at the end

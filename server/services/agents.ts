@@ -28,7 +28,6 @@ export interface ContentPlan {
   keywords: string[];
   imagePrompt: string;
   captionStyle: string;
-  hashtags: string[];
 }
 
 export interface GeneratedImage {
@@ -111,11 +110,11 @@ export class ShowrunnerService {
         messages: [
           {
             role: 'system',
-            content: 'You are a content strategist. Create a detailed content plan for social media posts.'
+            content: 'You are a content strategist specializing in lifestyle photography. Create content plans for realistic iPhone photos featuring people in authentic situations.'
           },
           {
             role: 'user',
-            content: `Create a content plan for a ${topic.niche} post about ${topic.keywords.join(', ')}. Include an image prompt and caption style. Return JSON: {"imagePrompt": "...", "captionStyle": "casual/professional/inspirational"}`
+            content: `Create a content plan for a ${topic.niche} post about ${topic.keywords.join(', ')}. The image should feature a young woman in a realistic, candid moment related to ${topic.niche}. Describe the scene, her activity, outfit, and setting. Return JSON: {"imagePrompt": "describe the scene with the person and activity", "captionStyle": "casual/professional/inspirational"}`
           }
         ],
         response_format: {
@@ -126,7 +125,7 @@ export class ShowrunnerService {
             schema: {
               type: 'object',
               properties: {
-                imagePrompt: { type: 'string', description: 'Detailed prompt for image generation' },
+                imagePrompt: { type: 'string', description: 'Scene description with person and activity' },
                 captionStyle: { type: 'string', description: 'Style of caption: casual, professional, or inspirational' }
               },
               required: ['imagePrompt', 'captionStyle'],
@@ -142,18 +141,16 @@ export class ShowrunnerService {
       return {
         niche: topic.niche,
         keywords: topic.keywords,
-        imagePrompt: result.imagePrompt || `A beautiful ${topic.niche.toLowerCase()} scene featuring ${topic.keywords.join(', ')}`,
-        captionStyle: result.captionStyle || 'casual',
-        hashtags: ['#DNA']
+        imagePrompt: result.imagePrompt || `Young woman enjoying ${topic.niche.toLowerCase()} activities, ${topic.keywords.join(', ')}`,
+        captionStyle: result.captionStyle || 'casual'
       };
     } catch (error) {
       console.error('[Showrunner] Error:', error);
       return {
         niche: topic.niche,
         keywords: topic.keywords,
-        imagePrompt: `A beautiful ${topic.niche.toLowerCase()} scene featuring ${topic.keywords.join(', ')}`,
-        captionStyle: 'casual',
-        hashtags: ['#DNA']
+        imagePrompt: `Young woman enjoying ${topic.niche.toLowerCase()} activities, ${topic.keywords.join(', ')}`,
+        captionStyle: 'casual'
       };
     }
   }
@@ -166,8 +163,8 @@ export class ShowrunnerService {
 export class ImageGeneratorService {
   async generate(plan: ContentPlan): Promise<GeneratedImage> {
     try {
-      // Enhance prompt for realistic iPhone-style photos
-      const enhancedPrompt = `${plan.imagePrompt}. Realistic iPhone photo style, natural lighting, high quality, professional photography, candid moment, authentic, 3:4 aspect ratio.`;
+      // Create realistic iPhone-style selfie/portrait prompt
+      const enhancedPrompt = `iPhone selfie photo of a young Asian woman, ${plan.imagePrompt}. Natural daylight, soft focus, warm color grading, casual comfortable outfit, genuine expression. Photorealistic portrait photography, authentic social media aesthetic, shot on iPhone 14 Pro, 3:4 vertical format. Real person, not illustration or digital art.`;
       
       const result = await generateImage({
         prompt: enhancedPrompt
@@ -203,21 +200,50 @@ export class CaptionWriterService {
           },
           {
             role: 'user',
-            content: `Write a ${plan.captionStyle} caption for a ${plan.niche} post about ${plan.keywords.join(', ')}. Keep it concise (2-3 sentences), engaging, and authentic. Do not include hashtags in the caption.`
+            content: `Write a ${plan.captionStyle} caption for a ${plan.niche} post about ${plan.keywords.join(', ')}. Keep it concise (2-3 sentences), engaging, and authentic. Generate 3-5 relevant hashtags for this post. Return as JSON: {"caption": "...", "hashtags": ["#hashtag1", "#hashtag2", ...]}`
           }
-        ]
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'caption_with_hashtags',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                caption: { type: 'string', description: 'The caption text without hashtags' },
+                hashtags: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of relevant hashtags with # symbol'
+                }
+              },
+              required: ['caption', 'hashtags'],
+              additionalProperties: false
+            }
+          }
+        }
       });
 
       const content = response.choices[0].message.content;
-      let caption = typeof content === 'string' ? content : 'Check this out!';
+      const result = JSON.parse(typeof content === 'string' ? content : '{"caption": "Check this out!", "hashtags": []}');
       
-      // Add hashtags at the end
-      caption += ` ${plan.hashtags.join(' ')}`;
+      let caption = result.caption || 'Check this out!';
+      const hashtags = result.hashtags || [];
+      
+      // Insert #DNA in the middle of hashtags
+      if (hashtags.length > 0) {
+        const midPoint = Math.floor(hashtags.length / 2);
+        hashtags.splice(midPoint, 0, '#DNA');
+        caption += ` ${hashtags.join(' ')}`;
+      } else {
+        caption += ' #DNA';
+      }
       
       return caption;
     } catch (error) {
       console.error('[CaptionWriter] Error:', error);
-      return `Discover the best of ${plan.niche}! ${plan.keywords.join(', ')} ${plan.hashtags.join(' ')}`;
+      return `Discover the best of ${plan.niche}! ${plan.keywords.join(', ')} #DNA`;
     }
   }
 }
